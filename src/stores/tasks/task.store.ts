@@ -1,8 +1,9 @@
 import { StateCreator, create } from 'zustand';
 import { Task, TaskStatus } from '../../interfaces';
-import { devtools } from 'zustand/middleware';
+import { devtools, persist } from 'zustand/middleware';
+import { immer } from 'zustand/middleware/immer';
 import { v4 as uuidv4 } from 'uuid';
-import { produce } from 'immer';
+// import { produce } from 'immer';
 
 interface TaskState {
 	tasks: Record<string, Task>;
@@ -15,9 +16,10 @@ interface Actions {
 	setDragginTaskId: (taskId: string) => void;
 	changeTaskStatus: (taskId: string, status: TaskStatus) => void;
 	removeDraggingTaskId: () => void;
+	totalTasks: () => number;
 }
 
-const taskStore: StateCreator<TaskState & Actions> = (set, get) => ({
+const taskStore: StateCreator<TaskState & Actions, [['zustand/immer', never]]> = (set, get) => ({
 	//State
 	tasks: {
 		'1': { id: '1', title: 'Task-1', status: 'open' },
@@ -35,7 +37,8 @@ const taskStore: StateCreator<TaskState & Actions> = (set, get) => ({
 	},
 	addTask: (title: string, status: TaskStatus) => {
 		const newTask = { id: uuidv4(), title, status };
-		//Sin immer
+
+		//? Sin immer, forma nativa zustand
 		// set((state) => ({
 		// 	tasks: {
 		// 		...state.tasks,
@@ -43,25 +46,36 @@ const taskStore: StateCreator<TaskState & Actions> = (set, get) => ({
 		// 	},
 		// }));
 
-		//Con immer
-		set(
-			produce((state: TaskState) => {
-				state.tasks[newTask.id] = newTask;
-			}),
-		);
+		//? Con immer, requiere instalarla como dependencia "yarn add immer"
+		// set(
+		// 	produce((state: TaskState) => {
+		// 		state.tasks[newTask.id] = newTask;
+		// 	}),
+		// );
+
+		//? Con immer como middleware de zustand
+		set((state) => {
+			state.tasks[newTask.id] = newTask;
+		});
 	},
 	setDragginTaskId: (taskId: string) => set({ draggingTaskId: taskId }),
 	changeTaskStatus: (taskId: string, status: TaskStatus) => {
 		set((state) => {
 			state.tasks[taskId].status = status;
-
 			return state;
 		});
 	},
 	removeDraggingTaskId: () => set({ draggingTaskId: undefined }),
+	totalTasks: () => Object.keys(get().tasks).length,
 });
 
-export const useTaskStore = create<TaskState & Actions>()(devtools(taskStore));
+export const useTaskStore = create<TaskState & Actions>()(
+	devtools(
+		persist(immer(taskStore), {
+			name: 'task-storage',
+		}),
+	),
+);
 
 /*
     La libreria immer nos permite escribir codigo mutante, es decir mutar valores no primitivos
