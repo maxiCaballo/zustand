@@ -2,6 +2,7 @@ import { StateCreator, create } from 'zustand';
 import { Task, TaskStatus } from '../../interfaces';
 import { devtools } from 'zustand/middleware';
 import { v4 as uuidv4 } from 'uuid';
+import { produce } from 'immer';
 
 interface TaskState {
 	tasks: Record<string, Task>;
@@ -17,6 +18,7 @@ interface Actions {
 }
 
 const taskStore: StateCreator<TaskState & Actions> = (set, get) => ({
+	//State
 	tasks: {
 		'1': { id: '1', title: 'Task-1', status: 'open' },
 		'2': { id: '2', title: 'Task-2', status: 'open' },
@@ -33,12 +35,20 @@ const taskStore: StateCreator<TaskState & Actions> = (set, get) => ({
 	},
 	addTask: (title: string, status: TaskStatus) => {
 		const newTask = { id: uuidv4(), title, status };
-		set((state) => ({
-			tasks: {
-				...state.tasks,
-				[newTask.id]: newTask,
-			},
-		}));
+		//Sin immer
+		// set((state) => ({
+		// 	tasks: {
+		// 		...state.tasks,
+		// 		[newTask.id]: newTask,
+		// 	},
+		// }));
+
+		//Con immer
+		set(
+			produce((state: TaskState) => {
+				state.tasks[newTask.id] = newTask;
+			}),
+		);
 	},
 	setDragginTaskId: (taskId: string) => set({ draggingTaskId: taskId }),
 	changeTaskStatus: (taskId: string, status: TaskStatus) => {
@@ -52,3 +62,8 @@ const taskStore: StateCreator<TaskState & Actions> = (set, get) => ({
 });
 
 export const useTaskStore = create<TaskState & Actions>()(devtools(taskStore));
+
+/*
+    La libreria immer nos permite escribir codigo mutante, es decir mutar valores no primitivos
+     y que react se entere de que hubo un cambio en el estado.
+*/
